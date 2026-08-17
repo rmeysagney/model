@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Helio · Support Console</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v='20260817-ui2') }}">
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Helio Support Console ana sayfa"><span class="brand-icon">✦</span><span>Helio</span><em>support console</em></a>
+      <div class="topbar-meta"><span id="status" class="status"><i></i>Model bağlanıyor</span><span class="build-label">Yerel ML modeli</span></div>
+    </header>
+
+    <main class="workspace">
+      <section class="ticket-panel panel">
+        <div class="section-heading">
+          <div><p class="eyebrow">GELEN TALEP</p><h1>Müşteri mesajı</h1></div>
+          <span class="ticket-id">CANLI ANALİZ</span>
+        </div>
+        <form id="analysis-form">
+          <label for="message">Mesaj</label>
+          <textarea id="message" rows="6" maxlength="5000" placeholder="Müşterinin mesajını buraya yazın veya yapıştırın…" required aria-describedby="message-help"></textarea>
+          <div class="message-meta" id="message-help"><span>İpucu: Konuyu ve gördüğünüz hatayı birlikte yazın.</span><span id="message-count">0 / 5.000</span></div>
+          <div class="form-actions"><p>Etiket ve geçmiş yanıtlar yerel model tarafından bulunur. Yanıt taslağı İngilizce hazırlanır.</p><div class="action-buttons"><button class="secondary-button" id="clear-button" type="button">Temizle</button><button id="analyze-button" type="submit">Analiz et <span>→</span></button></div></div>
+        </form>
+
+        <div class="analysis-empty" id="analysis-empty"><span>✦</span><p>Mesajı analiz ettiğinde konu etiketi ve en yakın destek örnekleri burada görünür.</p></div>
+        <section class="analysis-result hidden" id="analysis-result" aria-live="polite">
+          <p class="eyebrow">TAHMİN EDİLEN ANA KATEGORİ</p>
+          <div class="category-result"><strong id="category-name"></strong><span id="confidence-text"></span></div>
+          <div class="confidence-track"><i id="confidence-bar"></i></div>
+          <p class="explanation" id="analysis-explanation"></p>
+          <div class="analysis-signals"><span id="decision-source" class="signal-chip"></span><span id="language-signal" class="signal-chip"></span><span class="signal-chip safe">E-posta filtreli</span><span class="signal-chip safe">İngilizce çıktı denetimli</span></div>
+        </section>
+      </section>
+
+      <section class="suggestions-panel panel">
+        <div class="section-heading">
+          <div><p class="eyebrow">BİLGİ TABANI</p><h2>Önerilen yanıtlar</h2><p class="heading-note">Aynı ana kategori içinden seçilir.</p></div>
+          <span class="suggestion-count" id="suggestion-count">—</span>
+        </div>
+        <div id="suggestions" class="suggestions">
+          <div class="placeholder-card"><span>⌁</span><p>Analizden sonra benzer geçmiş destek kayıtları burada listelenir.</p></div>
+        </div>
+      </section>
+
+      <section class="reply-panel panel">
+        <div class="section-heading"><div><p class="eyebrow">YANIT TASLAĞI</p><h2>Göndermeden önce düzenle</h2></div><span class="draft-status" id="draft-status">Taslak boş</span></div>
+        <label for="reply-draft">Yanıt</label>
+        <textarea id="reply-draft" rows="8" placeholder="Sağdaki önerilerden birini seçerek taslağa ekleyin…"></textarea>
+        <div class="reply-footer"><p>Öneriler İngilizce destek yanıtı olarak taslakta açılır. Göndermeden önce kontrol edin.</p><button type="button" id="copy-button" disabled>Kopyala</button></div>
+      </section>
+    </main>
+    <script src="{{ url_for('static', filename='app.js', v='20260817-ui2') }}"></script>
+  </body>
+</html>

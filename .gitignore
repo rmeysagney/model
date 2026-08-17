@@ -1,0 +1,19 @@
+# macOS, Python ve yerel çalışma dosyaları
+.DS_Store
+__pycache__/
+*.py[cod]
+.venv/
+.translation_runtime/
+
+# Ham destek kayıtları ve değerlendirme çıktıları kişisel veri içerebilir.
+*.jsonl
+eval_results_*.json
+
+# Eğitim çıktıları depoya gönderilmez; yayın için ayrı, denetlenmiş model paketi gerekir.
+customer_support_ml/*.joblib
+customer_support_ml/*.tmp
+
+# Editör ve yerel gizli yapılandırmalar
+.env
+.idea/
+.vscode/
