@@ -21,8 +21,8 @@ BEHAVIOUR_CASES = {
     "thank you": ("Thanks", "rule"),
     "aa": ("Needs clarification", "none"),
     "???": ("Needs clarification", "none"),
-    "şifremi nasıl değiştiririm?": ("Account & data", "retrieval"),
-    "How can I pay with PIX?": ("Billing & subscriptions", "retrieval"),
+    "şifremi nasıl değiştiririm?": ("Account, sign-in & email", "retrieval"),
+    "How can I pay with PIX?": ("Payments & methods", "retrieval"),
     "rotamı paylaşmak istiyorum": ("Sharing & collaboration", "retrieval"),
 }
 

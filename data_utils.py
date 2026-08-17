@@ -50,7 +50,15 @@ def canonicalize_category(value: str) -> str:
 
 
 def group_category(specific_category: str) -> str:
-    """İnce taneli destek etiketlerini iş açısından anlamlı ana gruplara toplar."""
+    """İnce taneli destek etiketlerini kararlı, kullanıcı odaklı gruplara toplar.
+
+    Ham veri yüzlerce farklı yazımla gelen 867 kadar ayrıntılı konu içerir. Her
+    ayrıntıyı ayrı sınıf yapmak, az örnekli sınıflarda rastgele tahmin üretir.
+    Bu şema, yeterli kayıt bulunan niyetleri ayırır; az örnekli varyasyonları
+    ise aynı iş probleminde birleştirir. Sıralama önemlidir: örneğin kredi ve
+    abonelik konuları genel ``payment`` veya ``account`` eşleşmesinden önce
+    yakalanır.
+    """
     label = canonicalize_category(specific_category).casefold()
     special_labels = {
         "welcome": "Welcome",
@@ -63,35 +71,74 @@ def group_category(specific_category: str) -> str:
         return "Requirement"
     if "feature request" in label:
         return "Feature request"
+    # Faturalama: dört ayrı kullanıcı niyeti. Birinin yanıtı diğerinde çoğu
+    # zaman işe yaramadığından, geri getirme havuzları da ayrı tutulur.
     if any(word in label for word in (
-        "payment", "credit", "subscription", "subscribe", "refund", "invoice", "price", "pay with",
-        "free or paid", "free usage", "free credit", "gift credit", "gift", "currency",
-        "charge", "pix", "efecty", "oxxo",
+        "subscription", "subscribe", "monthly", "trial period", "trial subscription",
     )):
-        return "Billing & subscriptions"
-    if any(word in label for word in ("route", "stop", "address", "navigation", "map", "geocode")):
-        return "Route & navigation"
+        return "Subscriptions & plans"
     if any(word in label for word in (
-        "account", "email", "password", "device", "backup", "data lost", "login", "logout",
+        "credit", "gift", "balance", "insufficient balance",
     )):
-        return "Account & data"
-    if any(word in label for word in ("share", "collaboration", "another user", "whatsapp")):
+        return "Credits & usage"
+    if any(word in label for word in (
+        "refund", "invoice", "price", "cost", "charge", "free or paid", "free usage",
+        "overcharge", "receipt", "currency convert", "exchange rate",
+    )):
+        return "Pricing, refunds & invoices"
+    if any(word in label for word in (
+        "payment", "pay with", "pay ", "pix", "efecty", "oxxo", "paypal", "boleto",
+        "cash", "cpf", "postal code for google", "google payment", "mobile billing",
+    )):
+        return "Payments & methods"
+    # Paylaşım, rota ile ilgili olsa da rota oluşturma/navigasyon değil ayrı bir
+    # iş akışıdır. Bu nedenle rota kurallarından önce değerlendirilir.
+    if any(word in label for word in ("share", "sharing", "collaboration", "another user", "whatsapp")):
         return "Sharing & collaboration"
+    # "Replied via phone/e-mail" gibi kayıtlar hesap problemi değildir; destek
+    # kanalını anlatır. Bu kontrol e-posta/hesap kontrolünden önce olmalıdır.
+    if any(word in label for word in (
+        "replied via", "reply sent", "phone support", "phone call", "contact us", "contact via",
+        "contacted", "team info", "whatsapp support", "whatsapp number", "phone number requested",
+    )):
+        return "Contact support"
+    # Hesap erişimi ile cihaz/veri aktarımı farklı destek adımları gerektirir.
+    if any(word in label for word in (
+        "device", "backup", "data lost", "data loss", "restore data", "restore backup",
+        "cloud backup", "move data", "delete data", "stolen device",
+    )):
+        return "Devices, backup & data"
+    if any(word in label for word in (
+        "account", "email", "password", "login", "logout", "apple id", "sign-in",
+    )):
+        return "Account, sign-in & email"
+    # Adres/navigasyon hataları ve rota planlama ayrı havuzlarda tutulur.
+    if any(word in label for word in (
+        "address", "navigation", "map", "geocode", "waze", "yandex", "location", "postal code",
+    )):
+        return "Addresses, maps & navigation"
+    if any(word in label for word in (
+        "route", "stop", "optimization", "excel", "csv", "kml", "reorder", "time window",
+        "time estimation", "sort", "import", "export", "pdf report", "report",
+    )):
+        return "Route planning & stops"
     if any(word in label for word in ("ad", "video", "reward", "earn")):
         return "Ads & promotions"
     if any(word in label for word in (
-        "first usage", "information", "what is", "how to", "manual", "excel", "time estimation",
-        "time window", "sort", "reorder", "fast input", "beta",
+        "first usage", "information", "what is", "how to", "manual", "fast input", "beta",
     )):
         return "Getting started & information"
     if any(word in label for word in (
         "not for companies", "web or desktop", "restriction", "huawei", "another country", "availability",
     )):
         return "Access & availability"
-    if any(word in label for word in ("phone", "team", "support request", "replied via")):
-        return "Contact support"
-    if any(word in label for word in ("error", "bug", "not working", "update", "problem")):
-        return "Technical issue"
+    if any(word in label for word in (
+        "ios update", "update google", "google play services", "huawei", "compatibility",
+        "iphone", "android", "app gallery", "hms core",
+    )):
+        return "Updates & compatibility"
+    if any(word in label for word in ("error", "bug", "not working", "update", "problem", "crash", "slow")):
+        return "App errors & bug reports"
     return "General inquiry"
 
 

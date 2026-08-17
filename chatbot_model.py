@@ -71,14 +71,29 @@ def keyword_support_group(message: str) -> str | None:
     """
     text = re.sub(r"\s+", " ", message.casefold()).strip()
     terms = {
-        "Account & data": (
+        "Subscriptions & plans": (
+            "subscription", "subscribe", "abonelik", "aboneli", "plan", "monthly plan",
+            "cancel subscription", "abonelik iptal", "iptal et",
+        ),
+        "Credits & usage": (
+            "credit", "credits", "kredi", "kredim", "gift credit", "hediye kredi", "balance",
+        ),
+        "Pricing, refunds & invoices": (
+            "refund", "iade", "invoice", "fatura", "price", "pricing", "fiyat", "ücret", "ucret",
+            "charge", "cost", "maliyet",
+        ),
+        "Payments & methods": (
+            "payment", "pay ", "ödeme", "odeme", "pix", "oxxo", "efecty", "paypal", "boleto",
+            "payment method", "ödeme yöntemi", "odeme yontemi",
+        ),
+        "Devices, backup & data": (
+            "backup", "restore", "yedek", "geri yükle", "geri yukle", "data lost", "veri kaybı",
+            "veri kaybi", "verilerim", "verilerimi", "data transfer", "veri aktar", "yeni cihaz",
+            "change device", "cihaz değiştir", "cihaz degistir",
+        ),
+        "Account, sign-in & email": (
             "password", "şifre", "sifre", "parola", "login", "log in", "sign in",
             "e-mail", "email address", "hesabım", "hesabim", "account",
-        ),
-        "Billing & subscriptions": (
-            "payment", "pay ", "ödeme", "odeme", "credit", "kredi", "subscription",
-            "subscribe", "abonelik", "aboneli", "refund", "iade", "invoice", "fatura",
-            "pix", "oxxo", "efecty",
         ),
         # "Share a route" bir rota oluşturma isteği değil, paylaşım isteğidir.
         # Bu yüzden Route & navigation'dan önce değerlendirilir.
@@ -86,12 +101,20 @@ def keyword_support_group(message: str) -> str | None:
             "share", "sharing", "collaboration", "paylaş", "paylas", "ortak kullanıcı",
             "ortak kullanici",
         ),
-        "Route & navigation": (
-            "route", "navigation", "address", "stop", "rota", "navigasyon", "adres",
-            "durak", "harita", "map",
+        "Addresses, maps & navigation": (
+            "navigation", "address", "navigasyon", "adres", "harita", "map", "waze", "yandex",
+        ),
+        "Route planning & stops": (
+            "route", "stop", "rota", "durak", "optimize", "optimization", "excel", "csv",
         ),
         "Ads & promotions": (
             "advert", "watch ad", "video ad", "reklam", "video izle", "reward", "ödül", "odul",
+        ),
+        "Updates & compatibility": (
+            "ios", "android update", "google play services", "huawei", "app gallery", "güncelleme", "guncelleme",
+        ),
+        "App errors & bug reports": (
+            "error", "bug", "crash", "not working", "çalışmıyor", "calismiyor", "açılmıyor", "acilmiyor", "hata",
         ),
     }
     for group, keywords in terms.items():
@@ -286,8 +309,15 @@ def answer_message(model: dict, message: str, top_k: int = 3) -> dict:
     if is_too_vague(message):
         return clarification_result(message, user_language, 0.0)
 
+    # PIX gibi açık bir alt niyet bulunduğunda etiket ve yanıt havuzu birlikte
+    # seçilmelidir. Aksi durumda "subscribe ... PIX" mesajında etiket abonelik
+    # olup öneri ödeme kaydından gelebilir.
+    exact_intent = retrieval_intent_category(message)
     explicit_group = keyword_support_group(message)
-    predicted_group = explicit_group or model["classifier"].predict([message])[0]
+    predicted_group = (
+        group_category(exact_intent) if exact_intent
+        else explicit_group or model["classifier"].predict([message])[0]
+    )
     query_vector = model["response_vectorizer"].transform([message])
     similarities = cosine_similarity(query_vector, model["response_matrix"]).ravel()
     # Öneriler sadece tahmin edilen ana gruptan seçilir; örneğin ödeme etiketi
@@ -301,7 +331,6 @@ def answer_message(model: dict, message: str, top_k: int = 3) -> dict:
         similarities = group_similarities
     top_k = max(1, min(top_k, len(similarities)))
     specific_categories = model.get("training_specific_categories", model["training_categories"])
-    exact_intent = retrieval_intent_category(message)
     if exact_intent:
         exact_indices = np.flatnonzero(np.asarray(specific_categories) == exact_intent)
         if len(exact_indices):
