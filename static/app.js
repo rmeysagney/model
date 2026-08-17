@@ -104,13 +104,21 @@ function renderAnalysis(data) {
     decisionSource.textContent = 'Belirsizlik koruması';
     explanation.textContent = 'Mesaj, eğitim kayıtlarından yeterince benzer bir konuyla eşleşmedi. Daha fazla ayrıntı isteniyor.';
   } else {
-    confidenceText.textContent = `En iyi benzerlik %${score}`;
-    confidenceBar.style.width = `${Math.max(4, score)}%`;
     const hasIntentRule = data.category_source === 'keyword_rule';
-    decisionSource.textContent = hasIntentRule ? 'Açık konu kuralı + kayıt eşleştirme' : 'Yerel ML + kayıt eşleştirme';
-    explanation.textContent = hasIntentRule
-      ? 'Açıkça belirtilen konu güvenli kuralla seçildi; öneri aynı konuya ait geçmiş kayıttan geliyor. Yüzde, yanıt doğruluğu değil metinsel benzerliktir.'
-      : 'Etiket yerel modelden, öneriler aynı kategori içindeki geçmiş kayıtlardan gelir. Yüzde, doğruluk değil metinsel benzerliktir.';
+    if (hasIntentRule) {
+      // Etiket açık bir konu kelimesinden geldiğinde kayıt benzerliği etiketin
+      // güveni değildir; %8 gibi bir sayı yanlış biçimde düşük güven izlenimi
+      // vermemelidir.
+      confidenceText.textContent = 'Konu doğrudan tanındı';
+      confidenceBar.style.width = '100%';
+      decisionSource.textContent = 'Açık konu kuralı + kayıt eşleştirme';
+      explanation.textContent = 'Etiket, mesajdaki açık konu kelimesiyle belirlendi. Sağdaki kartlardaki yüzde yalnız geçmiş kayıtla metinsel benzerliği gösterir; yanıt doğruluğu veya etiket güveni değildir.';
+    } else {
+      confidenceText.textContent = `En iyi kayıt benzerliği %${score}`;
+      confidenceBar.style.width = `${Math.max(4, score)}%`;
+      decisionSource.textContent = 'Yerel ML + kayıt eşleştirme';
+      explanation.textContent = 'Etiket yerel modelden, öneriler aynı kategori içindeki geçmiş kayıtlardan gelir. Yüzde, yanıt doğruluğu değil metinsel benzerliktir.';
+    }
     if (data.date_aware_ranking) {
       explanation.textContent += ' Yakın eşleşmeler arasında tarihli en güncel kayıt önceliklendirilir.';
     }
