@@ -21,6 +21,9 @@ BEHAVIOUR_CASES = {
     "thank you": ("Thanks", "rule"),
     "aa": ("Needs clarification", "none"),
     "???": ("Needs clarification", "none"),
+    # Kısa yazım hataları ve anlamsız metinler hiçbir destek grubuna zorlanmaz.
+    "mergabab": ("Needs clarification", "none"),
+    "asdasd": ("Needs clarification", "none"),
     "şifremi nasıl değiştiririm?": ("Account, sign-in & email", "retrieval"),
     "How can I pay with PIX?": ("Payments & methods", "retrieval"),
     "rotamı paylaşmak istiyorum": ("Sharing & collaboration", "retrieval"),

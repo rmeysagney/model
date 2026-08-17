@@ -32,6 +32,12 @@ THANKS_WORDS = {
     "merci", "grazie", "obrigado", "obrigada", "danke", "спасибо", "شكرا",
 }
 MIN_RETRIEVAL_SIMILARITY = 0.12
+# Tek kelimelik veya çok kısa, konu anahtarı içermeyen girdilerde düşük bir
+# metinsel benzerlik yeterli kanıt değildir. Bu eşik, "asdasd" gibi anlamsız
+# metinlerin rastgele destek etiketi almasını engeller. Bilinen konu kelimeleri
+# (PIX, fatura, şifre vb.) keyword_support_group ile bu kuralın dışındadır.
+MIN_SHORT_UNQUALIFIED_SIMILARITY = 0.45
+SHORT_UNQUALIFIED_LENGTH = 12
 EMAIL_PATTERN = re.compile(
     r"(?ix)(?<![\w@])[\w.*%+\-]{1,128}\s*@\s*"
     r"(?:[a-z0-9\-]{1,63}\s*\.\s*)+[a-z]{2,24}(?![\w@])"
@@ -370,7 +376,13 @@ def answer_message(model: dict, message: str, top_k: int = 3) -> dict:
     if not suggestions:
         return clarification_result(message, user_language, 0.0)
     best = suggestions[0]
-    if best["similarity"] < MIN_RETRIEVAL_SIMILARITY and not explicit_group:
+    normalized_length = len(re.sub(r"\W+", "", message.casefold()))
+    minimum_similarity = (
+        MIN_SHORT_UNQUALIFIED_SIMILARITY
+        if not explicit_group and not exact_intent and normalized_length <= SHORT_UNQUALIFIED_LENGTH
+        else MIN_RETRIEVAL_SIMILARITY
+    )
+    if best["similarity"] < minimum_similarity and not explicit_group:
         return clarification_result(message, user_language, best["similarity"])
 
     return {
