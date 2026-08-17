@@ -15,12 +15,13 @@ from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.svm import LinearSVC
 
-from chatbot_model import clean_support_answer, is_safe_english_reply
+from chatbot_model import clean_source_text, clean_support_answer, is_safe_english_reply
 from data_utils import canonicalize_category, group_category, load_records
 
 
 TRAIN_FILE = Path("train_model_data.jsonl")
 MODEL_FILE = Path("customer_support_ml/model_english_multilingual.joblib")
+DEPLOY_MODEL_FILE = Path("deployment_assets/model_english_multilingual.joblib")
 VALIDATION_RATIO = 0.12
 RANDOM_STATE = 42
 
@@ -61,6 +62,7 @@ def main() -> None:
     records = [
         {
             **record,
+            "text": clean_source_text(record["text"]),
             "specific_category": canonicalize_category(record["category"]),
             "category": group_category(record["category"]),
         }
@@ -136,16 +138,18 @@ def main() -> None:
             },
         },
     }
-    MODEL_FILE.parent.mkdir(parents=True, exist_ok=True)
-    # Çalışan arayüz model dosyasını aynı anda okuyabilir. Önce tam bir geçici
-    # dosyaya yazıp sonra atomik olarak değiştiriyoruz; yarım pickle okunamaz.
-    temporary_model = MODEL_FILE.with_suffix(MODEL_FILE.suffix + ".tmp")
-    joblib.dump(artifact, temporary_model, compress=3)
-    os.replace(temporary_model, MODEL_FILE)
+    for output_file in (MODEL_FILE, DEPLOY_MODEL_FILE):
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+        # Çalışan arayüz model dosyasını aynı anda okuyabilir. Önce tam bir geçici
+        # dosyaya yazıp sonra atomik olarak değiştiriyoruz; yarım pickle okunamaz.
+        temporary_model = output_file.with_suffix(output_file.suffix + ".tmp")
+        joblib.dump(artifact, temporary_model, compress=3)
+        os.replace(temporary_model, output_file)
 
     print("\n✅ Eğitim tamamlandı.")
     print(f"   Kategori sayısı: {len(set(categories))}")
     print(f"   Kaydedilen model: {MODEL_FILE}")
+    print(f"   Yayın modeli: {DEPLOY_MODEL_FILE}")
     print("   Not: Bu model yalnızca eğitim verisinden öğrenir; harici hazır model kullanmaz.")
 
 

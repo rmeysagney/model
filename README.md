@@ -5,7 +5,7 @@ Kendi destek verisiyle eğitilmiş, önceden eğitilmiş LLM kullanmayan Flask t
 ## Yerelde çalıştırma
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements-training.txt
 python app.py
 ```
 
@@ -18,8 +18,8 @@ python train_model.py
 python model_quality_checks.py
 ```
 
-Eğitim kayıtları, değerlendirme çıktıları ve model dosyaları bu repoda izlenmez. Bu dosyalar kişisel veri içerebileceğinden yalnızca güvenli yerel veya özel depolamada tutulmalıdır.
+Ham eğitim kayıtları ve değerlendirme çıktıları bu repoda izlenmez. Bu dosyalar kişisel veri içerebileceğinden yalnızca güvenli yerel veya özel depolamada tutulmalıdır.
 
 ## Yayınlama
 
-Canlı ortama çıkmadan önce kişisel verisi temizlenmiş model paketi ve üretim yapılandırması hazırlanmalıdır. Ayrıntılar için Render veya benzeri bir Python web-service sağlayıcısı kullanılabilir.
+`render.yaml` Flask uygulamasını Render Web Service olarak başlatır. Canlıda Gunicorn kullanılır ve `deployment_assets/model_english_multilingual.joblib` yayın modeli yüklenir. Bu dosya eğitim sırasında üretilir; ham JSONL kayıtları yayın deposuna eklenmez.

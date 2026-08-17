@@ -1,5 +1,6 @@
 """Eğitilmiş sınıflandırıcı ve yanıt bulucuyu kullanma fonksiyonları."""
 
+import os
 from pathlib import Path
 import re
 
@@ -11,7 +12,9 @@ from sklearn.metrics.pairwise import cosine_similarity
 from data_utils import group_category
 
 
-DEFAULT_MODEL_FILE = Path("customer_support_ml/model_english_multilingual.joblib")
+DEFAULT_MODEL_FILE = Path(
+    os.environ.get("HELIO_MODEL_FILE", "customer_support_ml/model_english_multilingual.joblib")
+)
 DetectorFactory.seed = 42
 SUPPORTED_LANGUAGES = {
     "en", "tr", "pt", "es", "ru", "it", "fr", "de", "pl", "ro", "id", "ar", "uk", "nl"
@@ -32,6 +35,9 @@ MIN_RETRIEVAL_SIMILARITY = 0.12
 EMAIL_PATTERN = re.compile(
     r"(?ix)(?<![\w@])[\w.*%+\-]{1,128}\s*@\s*"
     r"(?:[a-z0-9\-]{1,63}\s*\.\s*)+[a-z]{2,24}(?![\w@])"
+)
+PHONE_PATTERN = re.compile(
+    r"(?x)(?<![\w@])(?:\+?\d[\d\s().-]{6,}\d)(?![\w@])"
 )
 SIGNATURE_PATTERN = re.compile(
     r"(?is)\b(?P<signature>support\s+(?:team|equipment|staff)|destek\s+ekibi)\b.*$"
@@ -135,6 +141,7 @@ def clean_support_answer(answer: str, customer_message: str = "") -> str:
     answer = SIGNATURE_PATTERN.sub("", answer)
     # Normal veya yıldızla maskelenmiş bütün e-posta biçimlerini tamamen kaldır.
     answer = EMAIL_PATTERN.sub("", answer)
+    answer = PHONE_PATTERN.sub("", answer)
     if customer_message:
         answer = re.sub(
             rf"\n{{2,}}[^\n]*\n\s*{re.escape(customer_message.strip())}\s*$",
@@ -182,8 +189,17 @@ def retrieval_intent_category(message: str) -> str | None:
 
 
 def clean_source_text(text: str) -> str:
-    """Kaynak soruda kişisel e-posta görünmesini de engeller."""
-    return re.sub(r"\s+", " ", EMAIL_PATTERN.sub("", text)).strip(" -–—,;|")
+    """Kaynak sorudaki e-posta ve telefon bilgisini gösterim/eğitimden çıkarır."""
+    text = EMAIL_PATTERN.sub("", text)
+    text = PHONE_PATTERN.sub("", text)
+    return re.sub(r"\s+", " ", text).strip(" -–—,;|")
+
+
+def display_source_text(text: str) -> str:
+    """Canlı yayında geçmiş müşteri mesajını göstermeden önerinin kaynağını belirtir."""
+    if os.environ.get("HELIO_HIDE_SOURCES") == "1":
+        return "Similar support record"
+    return clean_source_text(text)
 
 
 def simple_social_result(message: str, user_language: str) -> dict | None:
@@ -315,7 +331,7 @@ def answer_message(model: dict, message: str, top_k: int = 3) -> dict:
         suggestions.append({
             "answer": english_answer,
             "answer_en": english_answer,
-            "matched_question": clean_source_text(model["training_texts"][int(index)]),
+            "matched_question": display_source_text(model["training_texts"][int(index)]),
             "matched_category": model["training_categories"][int(index)],
             "matched_specific_category": specific_categories[int(index)],
             "similarity": float(similarities[int(index)]),

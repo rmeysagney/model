@@ -1,5 +1,7 @@
 """Tarayıcı tabanlı müşteri destek chatbot arayüzü."""
 
+import os
+
 from flask import Flask, jsonify, render_template, request
 
 from chatbot_model import answer_message, load_chatbot
@@ -20,6 +22,12 @@ def get_model():
 @app.get("/")
 def index():
     return render_template("index.html")
+
+
+@app.get("/healthz")
+def healthz():
+    """Sunucunun ayakta olduğunu doğrulayan hafif yayın sağlık kontrolü."""
+    return jsonify({"ok": True})
 
 
 @app.get("/api/status")
@@ -54,5 +62,6 @@ def chat():
 
 
 if __name__ == "__main__":
-    print("\n🌐 Arayüz hazır: http://127.0.0.1:5050")
-    app.run(host="127.0.0.1", port=5050, debug=False)
+    port = int(os.environ.get("PORT", "5050"))
+    print(f"\n🌐 Arayüz hazır: http://127.0.0.1:{port}")
+    app.run(host="127.0.0.1", port=port, debug=False)

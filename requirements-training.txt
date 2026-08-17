@@ -1,0 +1,3 @@
+# Sadece veri hazırlama/çeviri komutlarında gereken yerel bağımlılıklar.
+-r requirements.txt
+argostranslate>=1.11.0
