@@ -150,11 +150,21 @@ def normalise_record(item: dict) -> dict:
     diye yalnızca bu fonksiyonda geriye dönük destek bulunur.
     """
     if {"text", "category", "answer"}.issubset(item):
-        return {
+        record = {
             "text": str(item["text"]).strip(),
             "category": canonicalize_category(item["category"]),
             "answer": str(item["answer"]).strip(),
         }
+        # Tarih alanı opsiyoneldir. Eğitim verisinde yoksa uydurulmaz; varsa
+        # aynı konu için daha güncel yanıtı seçmek üzere korunur.
+        for key in (
+            "updated_at", "updatedAt", "answered_at", "answeredAt", "created_at",
+            "createdAt", "timestamp", "date",
+        ):
+            if item.get(key) not in (None, ""):
+                record["updated_at"] = str(item[key]).strip()
+                break
+        return record
 
     messages = item.get("messages", [])
     if len(messages) < 3:

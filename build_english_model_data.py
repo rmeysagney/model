@@ -81,6 +81,7 @@ def build_records(lookup: dict[tuple[str, str], str]) -> list[dict]:
                 "text": record["text"],
                 "category": record["category"],
                 "answer": english_answer,
+                **({"updated_at": record["updated_at"]} if record.get("updated_at") else {}),
             })
     if missing:
         print(f"⚠️ İngilizce yanıtı olmayan {missing} eski test kaydı dışarıda bırakıldı.")

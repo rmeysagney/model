@@ -38,6 +38,10 @@ MIN_RETRIEVAL_SIMILARITY = 0.12
 # (PIX, fatura, şifre vb.) keyword_support_group ile bu kuralın dışındadır.
 MIN_SHORT_UNQUALIFIED_SIMILARITY = 0.45
 SHORT_UNQUALIFIED_LENGTH = 12
+# Güncellik yalnız aynı derecede anlamlı adaylar arasındaki sıralamayı etkiler.
+# Böylece alakasız ama yeni bir kayıt güçlü anlamsal eşleşmeyi geçemez.
+RECENCY_SIMILARITY_WINDOW = 0.05
+RECENCY_RANK_BOOST = 0.06
 EMAIL_PATTERN = re.compile(
     r"(?ix)(?<![\w@])[\w.*%+\-]{1,128}\s*@\s*"
     r"(?:[a-z0-9\-]{1,63}\s*\.\s*)+[a-z]{2,24}(?![\w@])"
@@ -217,6 +221,27 @@ def retrieval_intent_category(message: str) -> str | None:
     return None
 
 
+def rank_with_recency(
+    similarities: np.ndarray, ranking_scores: np.ndarray, recency_scores: np.ndarray | list[float],
+) -> np.ndarray:
+    """Yakın anlamsal adaylar arasında daha güncel kaydı öne çıkarır.
+
+    Tarihi bulunmayan kayıtlar ve eski model dosyaları için sıralama aynen
+    korunur. Tarih, yalnız en iyi benzerliğe yakın adayları etkiler.
+    """
+    recency = np.asarray(recency_scores, dtype=float)
+    if len(recency) != len(similarities) or not np.any(recency > 0):
+        return ranking_scores
+    finite = np.isfinite(similarities)
+    if not np.any(finite):
+        return ranking_scores
+    best_similarity = float(np.max(similarities[finite]))
+    close_matches = finite & (similarities >= best_similarity - RECENCY_SIMILARITY_WINDOW)
+    updated_scores = np.array(ranking_scores, copy=True)
+    updated_scores[close_matches] += RECENCY_RANK_BOOST * recency[close_matches]
+    return updated_scores
+
+
 def clean_source_text(text: str) -> str:
     """Kaynak sorudaki e-posta ve telefon bilgisini gösterim/eğitimden çıkarır."""
     text = EMAIL_PATTERN.sub("", text)
@@ -349,6 +374,9 @@ def answer_message(model: dict, message: str, top_k: int = 3) -> dict:
     boosted_scores = np.array(similarities, copy=True)
     for index in np.flatnonzero(np.isfinite(boosted_scores)):
         boosted_scores[index] += retrieval_intent_boost(message, specific_categories[int(index)])
+    boosted_scores = rank_with_recency(
+        similarities, boosted_scores, model.get("training_recency_scores", []),
+    )
     ranked_indices = np.argsort(boosted_scores)[::-1]
     suggestions = []
     seen_answers = set()
@@ -370,6 +398,8 @@ def answer_message(model: dict, message: str, top_k: int = 3) -> dict:
             "matched_category": model["training_categories"][int(index)],
             "matched_specific_category": specific_categories[int(index)],
             "similarity": float(similarities[int(index)]),
+            "updated_at": model.get("training_updated_at", [""] * len(similarities))[int(index)] or None,
+            "recency_used": bool(model.get("training_recency_scores", [0.0] * len(similarities))[int(index)] > 0),
             "match_type": "retrieval",
             "translation_available": True,
         })
@@ -394,6 +424,7 @@ def answer_message(model: dict, message: str, top_k: int = 3) -> dict:
         "english_query": None,
         "memory_language": "en" if english_memory else "original-language",
         "category_source": "keyword_rule" if explicit_group else "model",
+        "date_aware_ranking": bool(np.any(np.asarray(model.get("training_recency_scores", [])) > 0)),
         "match_type": "retrieval",
         **best,
         "suggestions": suggestions,

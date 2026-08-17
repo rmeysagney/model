@@ -44,6 +44,7 @@ def translate_records(records: list[dict], name: str) -> list[dict]:
             "category": record["category"],
             "answer": answer,
             "source_language": detect_language(record["text"]),
+            **({"updated_at": record["updated_at"]} if record.get("updated_at") else {}),
         }
         for record, text, answer in zip(records, english_texts, english_answers)
     ]

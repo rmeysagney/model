@@ -3,7 +3,7 @@
 abo, abon, abone, abonei, ipt, ipta, iptal...
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from collections import Counter
 import os
@@ -44,6 +44,43 @@ def build_classifier(settings: dict) -> Pipeline:
             C=settings["C"], class_weight="balanced", max_iter=10_000
         )),
     ])
+
+
+def parse_record_timestamp(value: object) -> float | None:
+    """Opsiyonel kayıt tarihini sıralamada kullanılabilecek UTC saniyesine çevirir.
+
+    Tarih biçimi geçersizse veya kaynakta yoksa ``None`` döner. Böylece kayıt
+    sırası ya da dosya değiştirilme zamanı sahte "güncellik" olarak kullanılmaz.
+    """
+    if value in (None, ""):
+        return None
+    raw = str(value).strip()
+    try:
+        if raw.replace(".", "", 1).isdigit():
+            numeric = float(raw)
+            # Milisaniye cinsinden Unix zaman damgalarını destekle.
+            return numeric / 1000 if numeric > 10_000_000_000 else numeric
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.timestamp()
+
+
+def make_recency_scores(records: list[dict]) -> tuple[list[float], int]:
+    """Gerçek tarihli kayıtları 0–1 güncellik puanına dönüştürür."""
+    timestamps = [parse_record_timestamp(record.get("updated_at")) for record in records]
+    known = [timestamp for timestamp in timestamps if timestamp is not None]
+    if not known:
+        return [0.0] * len(records), 0
+    oldest, newest = min(known), max(known)
+    if newest == oldest:
+        return [1.0 if timestamp is not None else 0.0 for timestamp in timestamps], len(known)
+    return [
+        (timestamp - oldest) / (newest - oldest) if timestamp is not None else 0.0
+        for timestamp in timestamps
+    ], len(known)
 
 
 def split_for_validation(records: list[dict]) -> tuple[list[dict], list[dict]]:
@@ -110,6 +147,8 @@ def main() -> None:
     retrieval_categories = [record["category"] for record in retrieval_records]
     retrieval_specific_categories = [record["specific_category"] for record in retrieval_records]
     retrieval_answers = [clean_support_answer(record["answer"]) for record in retrieval_records]
+    retrieval_dates = [str(record.get("updated_at", "")).strip() for record in retrieval_records]
+    retrieval_recency, records_with_dates = make_recency_scores(retrieval_records)
     response_matrix = response_vectorizer.fit_transform(retrieval_texts)
 
     artifact = {
@@ -120,6 +159,8 @@ def main() -> None:
         "training_categories": retrieval_categories,
         "training_specific_categories": retrieval_specific_categories,
         "training_answers": retrieval_answers,
+        "training_updated_at": retrieval_dates,
+        "training_recency_scores": retrieval_recency,
         "metadata": {
             "algorithm": "TF-IDF character n-grams + LinearSVC + cosine retrieval",
             "trained_at": datetime.now().isoformat(timespec="seconds"),
@@ -131,6 +172,10 @@ def main() -> None:
             "input_languages": "multilingual",
             "response_language": "en",
             "label_scheme": "business-oriented grouped support labels",
+            "date_aware_ranking": {
+                "records_with_dates": records_with_dates,
+                "policy": "Within close semantic matches, prefer the most recently updated record.",
+            },
             "model_selection": {
                 "validation_ratio": VALIDATION_RATIO,
                 "candidates": candidate_scores,

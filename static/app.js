@@ -37,6 +37,12 @@ function renderLoadingSuggestions() {
   suggestionCount.textContent = 'aranıyor';
 }
 
+function formatRecordDate(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  return Number.isNaN(date.valueOf()) ? value : date.toLocaleDateString('tr-TR');
+}
+
 function renderSuggestions(suggestions) {
   suggestionsElement.innerHTML = '';
   suggestions.forEach((suggestion, index) => {
@@ -54,6 +60,12 @@ function renderSuggestions(suggestions) {
         ? 'Eşleşme yok'
       : `%${(suggestion.similarity * 100).toFixed(0)} eşleşme`;
     meta.append(label, score);
+    if (suggestion.updated_at) {
+      const updated = document.createElement('span');
+      updated.className = 'record-date';
+      updated.textContent = `Güncel: ${formatRecordDate(suggestion.updated_at)}`;
+      meta.append(updated);
+    }
     const answer = document.createElement('p');
     answer.className = 'suggestion-answer';
     answer.textContent = suggestion.answer;
@@ -99,6 +111,9 @@ function renderAnalysis(data) {
     explanation.textContent = hasIntentRule
       ? 'Açıkça belirtilen konu güvenli kuralla seçildi; öneri aynı konuya ait geçmiş kayıttan geliyor. Yüzde, yanıt doğruluğu değil metinsel benzerliktir.'
       : 'Etiket yerel modelden, öneriler aynı kategori içindeki geçmiş kayıtlardan gelir. Yüzde, doğruluk değil metinsel benzerliktir.';
+    if (data.date_aware_ranking) {
+      explanation.textContent += ' Yakın eşleşmeler arasında tarihli en güncel kayıt önceliklendirilir.';
+    }
   }
   suggestionCount.textContent = `${data.suggestions.length} öneri`;
   renderSuggestions(data.suggestions);

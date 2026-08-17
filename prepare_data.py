@@ -60,12 +60,24 @@ def main() -> None:
     df = df[df["answer"].astype(str).str.strip().ne("")]
     df = df.drop_duplicates(subset=["content", "answer"], keep="first")
     df["category"] = df["tags"].apply(clean_category)
+    # Dışa aktarımdaki tarih sütunu sürüme göre farklı ad taşıyabilir. Varsa
+    # en güncel destek yanıtını tercih edebilmek için aynen saklanır.
+    date_column = next((column for column in (
+        "updated_at", "updatedAt", "answered_at", "answeredAt", "created_at",
+        "createdAt", "timestamp", "date",
+    ) if column in df.columns), None)
     print(f"   Temiz kayıt: {len(df)} (silinen: {original_count - len(df)})")
 
-    records = [
-        {"text": row.content.strip(), "category": row.category, "answer": row.answer.strip()}
-        for row in df[["content", "category", "answer"]].itertuples(index=False)
-    ]
+    records = []
+    for _, row in df.iterrows():
+        record = {
+            "text": str(row["content"]).strip(),
+            "category": row["category"],
+            "answer": str(row["answer"]).strip(),
+        }
+        if date_column and pd.notna(row[date_column]):
+            record["updated_at"] = str(row[date_column]).strip()
+        records.append(record)
 
     # Tek örnekli kategoriler testte olursa model o etiketi eğitimde hiç görmez.
     counts = Counter(record["category"] for record in records)
@@ -89,10 +101,12 @@ def main() -> None:
     print(f"✅ {TRAIN_FILE}: {len(train)} kayıt")
     print(f"✅ {TEST_FILE}: {len(test)} kayıt")
     print(f"   Kategori sayısı: {len(counts)}")
+    print(f"   Tarih alanı: {date_column or 'yok (güncellik önceliği uygulanmaz)'}")
     print("\nYeni kayıt biçimi: {")
     print('  "text": "kullanıcı mesajı",')
     print('  "category": "etiket",')
-    print('  "answer": "doğrulanmış destek yanıtı"')
+    print('  "answer": "doğrulanmış destek yanıtı",')
+    print('  "updated_at": "2026-08-17T14:30:00Z"  // varsa')
     print("}")
 
 

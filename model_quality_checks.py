@@ -6,8 +6,9 @@ from sklearn.metrics import accuracy_score
 
 from chatbot_model import (
     EMAIL_PATTERN, LOW_QUALITY_REPLY_PATTERN, answer_message, clean_support_answer,
-    is_safe_english_reply, load_chatbot,
+    is_safe_english_reply, load_chatbot, rank_with_recency,
 )
+import numpy as np
 from data_utils import group_category, load_records
 
 
@@ -38,6 +39,18 @@ def assert_pix_reply_quality(model: dict, failures: list[str]) -> None:
         failures.append("PIX ödeme sorusunda 'How to pay with PIX' yanıtı ilk öneri değil.")
     if LOW_QUALITY_REPLY_PATTERN.search(best["answer"]):
         failures.append("PIX ödeme sorusunda düşük kaliteli genel yanıt gösterildi.")
+
+
+def assert_recency_ranking(failures: list[str]) -> None:
+    """Güncel kayıt, yalnız benzer adaylar arasında öne geçmelidir."""
+    similarities = np.array([0.78, 0.75, 0.50])
+    ranked = rank_with_recency(
+        similarities, similarities.copy(), np.array([0.0, 1.0, 1.0]),
+    )
+    if int(np.argmax(ranked)) != 1:
+        failures.append("Yakın eşleşmelerde en güncel kayıt önceliklenmedi.")
+    if ranked[2] != similarities[2]:
+        failures.append("Alakasız düşük benzerlikli kayıt güncellik nedeniyle yükseltildi.")
 
 
 def main() -> None:
@@ -77,6 +90,7 @@ def main() -> None:
                 f"beklenen ({expected_category}, {expected_type})"
             )
     assert_pix_reply_quality(model, failures)
+    assert_recency_ranking(failures)
 
     # Farklı destek gruplarındaki cevapların birbiriyle karışmadığını örnek test
     # kümesinden kontrol ediyoruz. Bu, öneri filtrelemesinin regresyon kontrolüdür.
