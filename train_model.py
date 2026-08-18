@@ -26,6 +26,7 @@ DEPLOY_MODEL_FILE = Path("deployment_assets/model_english_multilingual.joblib")
 VALIDATION_RATIO = 0.12
 RANDOM_STATE = 42
 SELECTION_TOLERANCE = 0.003
+RETRIEVAL_META_CATEGORY_PREFIXES = ("replied via", "reply sent", "phone support", "contact via")
 
 # Karakter ve kelime özelliklerini; ayrıca iki farklı doğrusal sınıflandırıcıyı
 # aynı doğrulamada karşılaştırıyoruz. Seçim ada göre değil test sonucuna göre.
@@ -115,6 +116,15 @@ def split_for_validation(records: list[dict]) -> tuple[list[dict], list[dict]]:
     return always_train + train_part, validation
 
 
+def is_displayable_retrieval_record(record: dict) -> bool:
+    """Kanal/metin kalıntısı taşıyan kayıtları öneri belleğine alma."""
+    specific = str(record.get("specific_category", "")).casefold().strip()
+    return (
+        is_safe_english_reply(record["answer"])
+        and not specific.startswith(RETRIEVAL_META_CATEGORY_PREFIXES)
+    )
+
+
 def main() -> None:
     records = [
         {
@@ -179,7 +189,7 @@ def main() -> None:
     ], transformer_weights={"characters": 0.7, "words": 1.3})
     # Sınıflandırıcı tüm veriyle eğitilir. Yanıt belleğine yalnızca güvenli,
     # İngilizce gösterilebilecek kayıtlar alınır.
-    retrieval_records = [record for record in records if is_safe_english_reply(record["answer"])]
+    retrieval_records = [record for record in records if is_displayable_retrieval_record(record)]
     retrieval_texts = [record["text"] for record in retrieval_records]
     retrieval_model_texts = [normalise_support_text(record["text"]) for record in retrieval_records]
     retrieval_categories = [record["category"] for record in retrieval_records]

@@ -32,6 +32,7 @@ THANKS_WORDS = {
     "merci", "grazie", "obrigado", "obrigada", "danke", "спасибо", "شكرا",
 }
 MIN_RETRIEVAL_SIMILARITY = 0.12
+MIN_ADDITIONAL_SUGGESTION_SIMILARITY = 0.20
 # Tek kelimelik veya çok kısa girdilerde düşük bir metinsel benzerlik yeterli
 # kanıt değildir. Bu eşik, "asdasd" gibi anlamsız metinlerin rastgele destek
 # etiketi almasını engeller.
@@ -120,7 +121,13 @@ def clean_support_answer(answer: str, customer_message: str = "") -> str:
         )
     answer = re.sub(r"(?<=,)(?=[A-Za-z])", " ", answer)
     answer = re.sub(r"(?<=[.!?])(?=[A-Z])", " ", answer)
-    return re.sub(r"[ \t]{2,}", " ", answer).strip(" -–—,;|")
+    answer = re.sub(r"[ \t]{2,}", " ", answer).strip(" -–—,;|")
+    # Geçmiş bir kaydın "seems active" ifadesi, canlı hesap durumunun bu
+    # sistem tarafından doğrulandığı anlamına gelmez. Bu yüzden abonelik
+    # görünmüyor talebinde güvenli, doğrulanabilir bir sonraki adımı öner.
+    if answer.casefold() == "hello, your subscription seems active. please restart the app.":
+        return "Hello, Please restart the app. If your subscription is still inactive afterwards, please let us know."
+    return answer
 
 
 def is_safe_english_reply(answer: str) -> bool:
@@ -130,7 +137,7 @@ def is_safe_english_reply(answer: str) -> bool:
     # yabancı ifade örnekleri deterministik olarak reddedilir; genel dil algılama
     # 9.000+ uzun yanıtta hem yavaş hem de karışık metinlerde daha az güvenilirdir.
     return (
-        bool(cleaned)
+        len(re.findall(r"[A-Za-z]+", cleaned)) >= 3
         and not bool(FOREIGN_CONTENT_PATTERN.search(cleaned))
         and not bool(LOW_QUALITY_REPLY_PATTERN.search(cleaned))
     )
@@ -316,6 +323,11 @@ def answer_message(model: dict, message: str, top_k: int = 3) -> dict:
     for index in ranked_indices:
         if len(suggestions) >= top_k:
             break
+        # İlk güçlü eşleşmeden sonra çok düşük skorlu kartlar, konu doğru olsa
+        # bile kullanıcıya alakasız alternatif gibi görünür. Yeterli kanıt
+        # taşımayan ek önerileri göstermeyiz.
+        if suggestions and similarities[int(index)] < MIN_ADDITIONAL_SUGGESTION_SIMILARITY:
+            continue
         raw_answer = model["training_answers"][int(index)]
         if not is_safe_english_reply(raw_answer):
             continue

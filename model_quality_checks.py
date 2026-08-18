@@ -61,6 +61,24 @@ def assert_multi_intent_uses_model(model: dict, failures: list[str]) -> None:
         failures.append("Çok konulu mesajın kategorisi modelden gelmedi.")
 
 
+def assert_subscription_reply_quality(model: dict, failures: list[str]) -> None:
+    """Aktifleşmeyen abonelikte güvenilir olmayan ham öneriler görünmemeli."""
+    result = answer_message(model, "ödeme yaptım ama aboneliğim aktif değil")
+    suggestions = result.get("suggestions", [])
+    if result.get("category") != "Subscriptions & plans":
+        failures.append("Aktifleşmeyen abonelik mesajı yanlış gruba düştü.")
+    if not suggestions:
+        failures.append("Aktifleşmeyen abonelik için öneri üretilemedi.")
+        return
+    first_answer = suggestions[0]["answer"].casefold()
+    if "seems active" in first_answer:
+        failures.append("Doğrulanmamış abonelik durumu kesin gibi gösterildi.")
+    if any(item["answer"].strip().casefold() == "hello" for item in suggestions):
+        failures.append("Tek kelimelik 'Hello' önerisi gösterildi.")
+    if any(item["matched_specific_category"].casefold().startswith("replied via") for item in suggestions):
+        failures.append("Yanıt kanalı meta etiketi öneri olarak gösterildi.")
+
+
 def main() -> None:
     model = load_chatbot()
     test_records = load_records(TEST_FILE)
@@ -102,6 +120,7 @@ def main() -> None:
     assert_pix_reply_quality(model, failures)
     assert_recency_ranking(failures)
     assert_multi_intent_uses_model(model, failures)
+    assert_subscription_reply_quality(model, failures)
 
     # Farklı destek gruplarındaki cevapların birbiriyle karışmadığını örnek test
     # kümesinden kontrol ediyoruz. Bu, öneri filtrelemesinin regresyon kontrolüdür.
