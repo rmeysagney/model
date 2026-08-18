@@ -128,10 +128,15 @@ def keyword_support_group(message: str) -> str | None:
             "error", "bug", "crash", "not working", "çalışmıyor", "calismiyor", "açılmıyor", "acilmiyor", "hata",
         ),
     }
-    for group, keywords in terms.items():
-        if any(keyword in text for keyword in keywords):
-            return group
-    return None
+    matched_groups = [
+        group for group, keywords in terms.items()
+        if any(keyword in text for keyword in keywords)
+    ]
+    # "Ödeme yaptım ama aboneliğim aktif değil" gibi çok konulu mesajlarda
+    # ilk bulunan kelimeye göre karar vermek güvenli değildir. Kural sadece
+    # tek, açık bir niyet taşıyan metinlerde devreye girer; diğerlerinde model
+    # bütün cümleyi birlikte değerlendirir.
+    return matched_groups[0] if len(matched_groups) == 1 else None
 
 
 def detect_language(text: str) -> str:

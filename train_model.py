@@ -17,7 +17,7 @@ from sklearn.pipeline import FeatureUnion, Pipeline
 from sklearn.svm import LinearSVC
 
 from chatbot_model import clean_source_text, clean_support_answer, is_safe_english_reply
-from data_utils import canonicalize_category, group_category, load_records, normalise_support_text
+from data_utils import canonicalize_category, group_record_category, load_records, normalise_support_text
 
 
 TRAIN_FILE = Path("train_model_data.jsonl")
@@ -121,7 +121,7 @@ def main() -> None:
             **record,
             "text": clean_source_text(record["text"]),
             "specific_category": canonicalize_category(record["category"]),
-            "category": group_category(record["category"]),
+            "category": group_record_category(record["category"], clean_source_text(record["text"])),
         }
         for record in load_records(TRAIN_FILE)
     ]

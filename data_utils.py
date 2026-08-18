@@ -169,6 +169,43 @@ def group_category(specific_category: str) -> str:
     return "General inquiry"
 
 
+def group_record_category(specific_category: str, text: str) -> str:
+    """Kayıt etiketini, gerekiyorsa müşteri talebinin asıl konusuyla düzeltir.
+
+    Ham dışa aktarımda ``Replied via phone`` ve ``Replied via e-mail`` gibi
+    etiketler bulunur. Bunlar müşterinin sorunu yerine temsilcinin yanıt
+    kanalını anlatır. Sadece bu meta-etiketlerde mesajdaki açık iş konusu,
+    eğitim ve öneri havuzu için daha anlamlı gruba taşınır.
+    """
+    base_group = group_category(specific_category)
+    if base_group != "Contact support":
+        return base_group
+
+    normalized = re.sub(r"\s+", " ", str(text or "").casefold()).strip()
+    topic_groups = (
+        ("Subscriptions & plans", (
+            "subscription", "subscribe", "abonelik", "aboneli", "monthly plan",
+            "assinatura", "suscripci",
+        )),
+        ("Credits & usage", ("credit", "kredi", "balance", "crédito", "credito")),
+        ("Pricing, refunds & invoices", ("refund", "iade", "invoice", "fatura", "price", "fiyat")),
+        ("Payments & methods", ("payment", "ödeme", "odeme", "pix", "paypal", "boleto", "oxxo")),
+        ("Account, sign-in & email", (
+            "password", "şifre", "sifre", "parola", "login", "sign in", "hesabım", "hesabim",
+        )),
+        ("Devices, backup & data", ("backup", "yedek", "restore", "cihaz", "device", "veri")),
+        ("Sharing & collaboration", ("share", "paylaş", "paylas", "collaboration")),
+        ("Addresses, maps & navigation", ("address", "adres", "navigation", "navigasyon", "harita", "map")),
+        ("Route planning & stops", ("route", "rota", "stop", "durak")),
+        ("Ads & promotions", ("advert", "reklam", "video ad", "video izle")),
+        ("App errors & bug reports", ("error", "hata", "crash", "çalışmıyor", "calismiyor")),
+    )
+    for topic_group, keywords in topic_groups:
+        if any(keyword in normalized for keyword in keywords):
+            return topic_group
+    return base_group
+
+
 def normalise_support_text(text: str) -> str:
     """Özgün metne dil bağımsız destek niyeti belirteçleri ekler.
 

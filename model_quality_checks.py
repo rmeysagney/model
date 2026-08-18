@@ -6,10 +6,10 @@ from sklearn.metrics import accuracy_score
 
 from chatbot_model import (
     EMAIL_PATTERN, LOW_QUALITY_REPLY_PATTERN, answer_message, clean_support_answer,
-    is_safe_english_reply, load_chatbot, rank_with_recency,
+    is_safe_english_reply, keyword_support_group, load_chatbot, rank_with_recency,
 )
 import numpy as np
-from data_utils import group_category, load_records, normalise_support_text
+from data_utils import group_record_category, load_records, normalise_support_text
 
 
 TEST_FILE = "test_model_data.jsonl"
@@ -53,6 +53,16 @@ def assert_recency_ranking(failures: list[str]) -> None:
         failures.append("Alakasız düşük benzerlikli kayıt güncellik nedeniyle yükseltildi.")
 
 
+def assert_multi_intent_uses_model(model: dict, failures: list[str]) -> None:
+    """Çelişebilen iki açık konu, ilk anahtar kelimeye zorlanmamalıdır."""
+    message = "ödeme yaptım ama aboneliğim aktif değil"
+    if keyword_support_group(message) is not None:
+        failures.append("Çok konulu ödeme/abonelik mesajı doğrudan kuralla etiketlendi.")
+    result = answer_message(model, message)
+    if result.get("category_source") == "keyword_rule":
+        failures.append("Çok konulu mesajın sonucu yanlışlıkla kural kaynağı gösterildi.")
+
+
 def main() -> None:
     model = load_chatbot()
     test_records = load_records(TEST_FILE)
@@ -61,7 +71,7 @@ def main() -> None:
 
     failures: list[str] = []
     trained_groups = set(model["training_categories"])
-    expected_groups = [group_category(record["category"]) for record in test_records]
+    expected_groups = [group_record_category(record["category"], record["text"]) for record in test_records]
     predicted_groups = model["classifier"].predict([
         normalise_support_text(record["text"]) for record in test_records
     ])
@@ -93,6 +103,7 @@ def main() -> None:
             )
     assert_pix_reply_quality(model, failures)
     assert_recency_ranking(failures)
+    assert_multi_intent_uses_model(model, failures)
 
     # Farklı destek gruplarındaki cevapların birbiriyle karışmadığını örnek test
     # kümesinden kontrol ediyoruz. Bu, öneri filtrelemesinin regresyon kontrolüdür.
