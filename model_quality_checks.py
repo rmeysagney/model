@@ -9,7 +9,7 @@ from chatbot_model import (
     is_safe_english_reply, load_chatbot, rank_with_recency,
 )
 import numpy as np
-from data_utils import group_category, load_records
+from data_utils import group_category, load_records, normalise_support_text
 
 
 TEST_FILE = "test_model_data.jsonl"
@@ -62,7 +62,9 @@ def main() -> None:
     failures: list[str] = []
     trained_groups = set(model["training_categories"])
     expected_groups = [group_category(record["category"]) for record in test_records]
-    predicted_groups = model["classifier"].predict([record["text"] for record in test_records])
+    predicted_groups = model["classifier"].predict([
+        normalise_support_text(record["text"]) for record in test_records
+    ])
     unexpected = sorted(set(predicted_groups) - trained_groups)
     if unexpected:
         failures.append(f"Model eğitimde olmayan etiket döndürdü: {unexpected}")

@@ -7,6 +7,28 @@ from pathlib import Path
 
 CATEGORY_PREFIX = re.compile(r"^\[Category:\s*(.*?)\]\s*", re.DOTALL)
 
+# Hazır bir çeviri/embedding modeli kullanmadan, destek alanındaki yaygın
+# çok dilli ifadeleri ortak niyet belirteçleriyle zenginleştiriyoruz. Özgün
+# metin korunur; bu belirteçler yalnızca TF-IDF'in farklı dillerdeki aynı
+# desteği eşleştirebilmesine yardım eder.
+DOMAIN_NORMALIZATION_RULES = (
+    (re.compile(r"(?iu)\b(?:şifr\w*|sifr\w*|parola\w*|password\w*|senha\w*|contraseñ\w*|парол\w*)\b"), "intent_password"),
+    (re.compile(r"(?iu)\b(?:unutt\w*|forgot\w*|esquec\w*|olvid\w*|vergess\w*|забыл\w*)\b"), "intent_forgot"),
+    (re.compile(r"(?iu)\b(?:ödeme\w*|odeme\w*|payment\w*|pag(?:ar|uei|amento|ó|o)\w*|оплат\w*)\b"), "intent_payment"),
+    (re.compile(r"(?iu)\b(?:abonelik\w*|subscription\w*|subscribe\w*|assinatura\w*|suscripci\w*|подписк\w*)\b"), "intent_subscription"),
+    (re.compile(r"(?iu)\b(?:kredi\w*|credit\w*|crédito\w*|credito\w*|кредит\w*)\b"), "intent_credit"),
+    (re.compile(r"(?iu)\b(?:fatura\w*|invoice\w*|factura\w*|rechnung\w*|чек\w*)\b"), "intent_invoice"),
+    (re.compile(r"(?iu)\b(?:iade\w*|refund\w*|reembolso\w*|devolu\w*|возврат\w*)\b"), "intent_refund"),
+    (re.compile(r"(?iu)\b(?:rota\w*|route\w*|ruta\w*|маршрут\w*)\b"), "intent_route"),
+    (re.compile(r"(?iu)\b(?:durak\w*|stop\w*|parada\w*|пункт\w*)\b"), "intent_stop"),
+    # "email address" hesap konusudur; harita adresi sinyali sayılmaz.
+    (re.compile(r"(?iu)(?:(?<!email\s)\baddress\w*\b|\b(?:adres\w*|direcci[oó]n\w*|endereç\w*|адрес\w*)\b)"), "intent_address"),
+    (re.compile(r"(?iu)\b(?:harita\w*|map\w*|mapa\w*|карта\w*)\b"), "intent_map"),
+    (re.compile(r"(?iu)\b(?:yedek\w*|backup\w*|restore\w*|respaldo\w*|резерв\w*)\b"), "intent_backup"),
+    (re.compile(r"(?iu)\b(?:cihaz\w*|device\w*|dispositivo\w*|aparelho\w*|устройств\w*)\b"), "intent_device"),
+    (re.compile(r"(?iu)\b(?:reklam\w*|advert\w*|anuncio\w*|anúncio\w*)\b"), "intent_ads"),
+)
+
 # Aynı desteği ifade eden küçük etiket farklarını tek sınıfta toplar. Böylece
 # "requirement" ve "requirements" gibi yazımlar ayrı model sınıfları olmaz.
 CATEGORY_ALIASES = {
@@ -71,6 +93,11 @@ def group_category(specific_category: str) -> str:
         return "Requirement"
     if "feature request" in label:
         return "Feature request"
+    # Ödeme ekranında sorulan parola, ödeme yöntemi değil Google/Apple hesap
+    # kimlik doğrulamasıdır. Böylece unutulan parola soruları doğru yanıt
+    # havuzuyla eşleşir.
+    if "payment password" in label:
+        return "Account, sign-in & email"
     # Faturalama: dört ayrı kullanıcı niyeti. Birinin yanıtı diğerinde çoğu
     # zaman işe yaramadığından, geri getirme havuzları da ayrı tutulur.
     if any(word in label for word in (
@@ -140,6 +167,20 @@ def group_category(specific_category: str) -> str:
     if any(word in label for word in ("error", "bug", "not working", "update", "problem", "crash", "slow")):
         return "App errors & bug reports"
     return "General inquiry"
+
+
+def normalise_support_text(text: str) -> str:
+    """Özgün metne dil bağımsız destek niyeti belirteçleri ekler.
+
+    Bu çeviri değildir ve hazır bir model kullanmaz. Örneğin ``şifremi
+    unuttum`` ile ``I forgot my password`` kendi kelimelerini korurken ortak
+    ``intent_password intent_forgot`` belirteçlerini de taşır.
+    """
+    original = re.sub(r"\s+", " ", str(text or "")).strip()
+    if not original:
+        return ""
+    signals = [label for pattern, label in DOMAIN_NORMALIZATION_RULES if pattern.search(original)]
+    return f"{original} {' '.join(signals)}".strip()
 
 
 def normalise_record(item: dict) -> dict:

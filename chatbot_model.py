@@ -9,7 +9,7 @@ import numpy as np
 from langdetect import DetectorFactory, LangDetectException, detect_langs
 from sklearn.metrics.pairwise import cosine_similarity
 
-from data_utils import group_category
+from data_utils import group_category, normalise_support_text
 
 
 DEFAULT_MODEL_FILE = Path(
@@ -63,7 +63,7 @@ FOREIGN_CONTENT_PATTERN = re.compile(
 SIGN_OFF_PATTERN = re.compile(
     r"(?is)\b(?:sincerely|regards|best\s+regards|kind\s+regards|greetings|"
     r"with\s+respect|summits|cumprimentos|atenciosamente|saudações|saudacoes|"
-    r"saludos|atentamente)\b\s*[,!:.-]?.*$"
+    r"saludos|atentamente|our\s+respects)\b\s*[,!:.-]?.*$"
 )
 LOW_QUALITY_REPLY_PATTERN = re.compile(
     r"(?i)\b(?:your\s+problem\s+seems\s+to\s+be\s+solved|"
@@ -102,7 +102,8 @@ def keyword_support_group(message: str) -> str | None:
             "change device", "cihaz değiştir", "cihaz degistir",
         ),
         "Account, sign-in & email": (
-            "password", "şifre", "sifre", "parola", "login", "log in", "sign in",
+            "password", "şifre", "sifre", "parola", "senha", "contraseña", "contrasena",
+            "passwort", "пароль", "login", "log in", "sign in",
             "e-mail", "email address", "hesabım", "hesabim", "account",
         ),
         # "Share a route" bir rota oluşturma isteği değil, paylaşım isteğidir.
@@ -347,9 +348,9 @@ def answer_message(model: dict, message: str, top_k: int = 3) -> dict:
     explicit_group = keyword_support_group(message)
     predicted_group = (
         group_category(exact_intent) if exact_intent
-        else explicit_group or model["classifier"].predict([message])[0]
+        else explicit_group or model["classifier"].predict([normalise_support_text(message)])[0]
     )
-    query_vector = model["response_vectorizer"].transform([message])
+    query_vector = model["response_vectorizer"].transform([normalise_support_text(message)])
     similarities = cosine_similarity(query_vector, model["response_matrix"]).ravel()
     # Öneriler sadece tahmin edilen ana gruptan seçilir; örneğin ödeme etiketi
     # altında rota yanıtı gösterilmez.
