@@ -6,7 +6,7 @@ from sklearn.metrics import accuracy_score
 
 from chatbot_model import (
     EMAIL_PATTERN, LOW_QUALITY_REPLY_PATTERN, answer_message, clean_support_answer,
-    is_safe_english_reply, keyword_support_group, load_chatbot, rank_with_recency,
+    is_safe_english_reply, load_chatbot, rank_with_recency,
 )
 import numpy as np
 from data_utils import group_record_category, load_records, normalise_support_text
@@ -54,13 +54,11 @@ def assert_recency_ranking(failures: list[str]) -> None:
 
 
 def assert_multi_intent_uses_model(model: dict, failures: list[str]) -> None:
-    """Çelişebilen iki açık konu, ilk anahtar kelimeye zorlanmamalıdır."""
+    """Çok konulu mesajın kategorisi sadece eğitilmiş modelden gelmelidir."""
     message = "ödeme yaptım ama aboneliğim aktif değil"
-    if keyword_support_group(message) is not None:
-        failures.append("Çok konulu ödeme/abonelik mesajı doğrudan kuralla etiketlendi.")
     result = answer_message(model, message)
-    if result.get("category_source") == "keyword_rule":
-        failures.append("Çok konulu mesajın sonucu yanlışlıkla kural kaynağı gösterildi.")
+    if result.get("category_source") != "model":
+        failures.append("Çok konulu mesajın kategorisi modelden gelmedi.")
 
 
 def main() -> None:

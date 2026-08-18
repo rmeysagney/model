@@ -104,21 +104,10 @@ function renderAnalysis(data) {
     decisionSource.textContent = 'Belirsizlik koruması';
     explanation.textContent = 'Mesaj, eğitim kayıtlarından yeterince benzer bir konuyla eşleşmedi. Daha fazla ayrıntı isteniyor.';
   } else {
-    const hasIntentRule = data.category_source === 'keyword_rule';
-    if (hasIntentRule) {
-      // Etiket açık bir konu kelimesinden geldiğinde kayıt benzerliği etiketin
-      // güveni değildir; %8 gibi bir sayı yanlış biçimde düşük güven izlenimi
-      // vermemelidir.
-      confidenceText.textContent = 'Konu doğrudan tanındı';
-      confidenceBar.style.width = '100%';
-      decisionSource.textContent = 'Açık konu kuralı + kayıt eşleştirme';
-      explanation.textContent = 'Etiket, mesajdaki açık konu kelimesiyle belirlendi. Sağdaki kartlardaki yüzde yalnız geçmiş kayıtla metinsel benzerliği gösterir; yanıt doğruluğu veya etiket güveni değildir.';
-    } else {
-      confidenceText.textContent = `En iyi kayıt benzerliği %${score}`;
-      confidenceBar.style.width = `${Math.max(4, score)}%`;
-      decisionSource.textContent = 'Yerel ML + kayıt eşleştirme';
-      explanation.textContent = 'Etiket yerel modelden, öneriler aynı kategori içindeki geçmiş kayıtlardan gelir. Yüzde, yanıt doğruluğu değil metinsel benzerliktir.';
-    }
+    confidenceText.textContent = `En iyi kayıt benzerliği %${score}`;
+    confidenceBar.style.width = `${Math.max(4, score)}%`;
+    decisionSource.textContent = 'Yerel ML + kayıt eşleştirme';
+    explanation.textContent = 'Etiket eğitilmiş yerel modelden, öneriler aynı kategori içindeki geçmiş kayıtlardan gelir. Yüzde, yanıt doğruluğu değil metinsel benzerliktir.';
     if (data.date_aware_ranking) {
       explanation.textContent += ' Yakın eşleşmeler arasında tarihli en güncel kayıt önceliklendirilir.';
     }

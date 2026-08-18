@@ -14,7 +14,7 @@ CATEGORY_PREFIX = re.compile(r"^\[Category:\s*(.*?)\]\s*", re.DOTALL)
 DOMAIN_NORMALIZATION_RULES = (
     (re.compile(r"(?iu)\b(?:şifr\w*|sifr\w*|parola\w*|password\w*|senha\w*|contraseñ\w*|парол\w*)\b"), "intent_password"),
     (re.compile(r"(?iu)\b(?:unutt\w*|forgot\w*|esquec\w*|olvid\w*|vergess\w*|забыл\w*)\b"), "intent_forgot"),
-    (re.compile(r"(?iu)\b(?:ödeme\w*|odeme\w*|payment\w*|pag(?:ar|uei|amento|ó|o)\w*|оплат\w*)\b"), "intent_payment"),
+    (re.compile(r"(?iu)\b(?:öde\w*|ode\w*|payment\w*|pag(?:ar|uei|amento|ó|o)\w*|оплат\w*|pix|paypal|boleto|oxxo)\b"), "intent_payment"),
     (re.compile(r"(?iu)\b(?:abonelik\w*|subscription\w*|subscribe\w*|assinatura\w*|suscripci\w*|подписк\w*)\b"), "intent_subscription"),
     (re.compile(r"(?iu)\b(?:kredi\w*|credit\w*|crédito\w*|credito\w*|кредит\w*)\b"), "intent_credit"),
     (re.compile(r"(?iu)\b(?:fatura\w*|invoice\w*|factura\w*|rechnung\w*|чек\w*)\b"), "intent_invoice"),

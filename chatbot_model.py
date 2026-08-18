@@ -9,7 +9,7 @@ import numpy as np
 from langdetect import DetectorFactory, LangDetectException, detect_langs
 from sklearn.metrics.pairwise import cosine_similarity
 
-from data_utils import group_category, normalise_support_text
+from data_utils import normalise_support_text
 
 
 DEFAULT_MODEL_FILE = Path(
@@ -32,10 +32,9 @@ THANKS_WORDS = {
     "merci", "grazie", "obrigado", "obrigada", "danke", "спасибо", "شكرا",
 }
 MIN_RETRIEVAL_SIMILARITY = 0.12
-# Tek kelimelik veya çok kısa, konu anahtarı içermeyen girdilerde düşük bir
-# metinsel benzerlik yeterli kanıt değildir. Bu eşik, "asdasd" gibi anlamsız
-# metinlerin rastgele destek etiketi almasını engeller. Bilinen konu kelimeleri
-# (PIX, fatura, şifre vb.) keyword_support_group ile bu kuralın dışındadır.
+# Tek kelimelik veya çok kısa girdilerde düşük bir metinsel benzerlik yeterli
+# kanıt değildir. Bu eşik, "asdasd" gibi anlamsız metinlerin rastgele destek
+# etiketi almasını engeller.
 MIN_SHORT_UNQUALIFIED_SIMILARITY = 0.45
 SHORT_UNQUALIFIED_LENGTH = 12
 # Güncellik yalnız aynı derecede anlamlı adaylar arasındaki sıralamayı etkiler.
@@ -70,73 +69,6 @@ LOW_QUALITY_REPLY_PATTERN = re.compile(
     r"support\s+(?:equipment|group)|our\s+respects|"
     r"we\s+can\s+call\s+the\s+solution)\b"
 )
-
-
-def keyword_support_group(message: str) -> str | None:
-    """Açıkça ifade edilen yaygın destek konularını güvenli biçimde yönlendirir.
-
-    Bu kurallar yalnızca güçlü konu kelimeleri içerir. Amaç LinearSVC'nin her
-    girdiye zorunlu olarak bir sınıf atamasının, "şifre" gibi net bir talebi
-    alakasız gruba götürmesini engellemektir; belirsiz metinlerde model çalışır.
-    """
-    text = re.sub(r"\s+", " ", message.casefold()).strip()
-    terms = {
-        "Subscriptions & plans": (
-            "subscription", "subscribe", "abonelik", "aboneli", "plan", "monthly plan",
-            "cancel subscription", "abonelik iptal", "iptal et",
-        ),
-        "Credits & usage": (
-            "credit", "credits", "kredi", "kredim", "gift credit", "hediye kredi", "balance",
-        ),
-        "Pricing, refunds & invoices": (
-            "refund", "iade", "invoice", "fatura", "price", "pricing", "fiyat", "ücret", "ucret",
-            "charge", "cost", "maliyet",
-        ),
-        "Payments & methods": (
-            "payment", "pay ", "ödeme", "odeme", "pix", "oxxo", "efecty", "paypal", "boleto",
-            "payment method", "ödeme yöntemi", "odeme yontemi",
-        ),
-        "Devices, backup & data": (
-            "backup", "restore", "yedek", "geri yükle", "geri yukle", "data lost", "veri kaybı",
-            "veri kaybi", "verilerim", "verilerimi", "data transfer", "veri aktar", "yeni cihaz",
-            "change device", "cihaz değiştir", "cihaz degistir",
-        ),
-        "Account, sign-in & email": (
-            "password", "şifre", "sifre", "parola", "senha", "contraseña", "contrasena",
-            "passwort", "пароль", "login", "log in", "sign in",
-            "e-mail", "email address", "hesabım", "hesabim", "account",
-        ),
-        # "Share a route" bir rota oluşturma isteği değil, paylaşım isteğidir.
-        # Bu yüzden Route & navigation'dan önce değerlendirilir.
-        "Sharing & collaboration": (
-            "share", "sharing", "collaboration", "paylaş", "paylas", "ortak kullanıcı",
-            "ortak kullanici",
-        ),
-        "Addresses, maps & navigation": (
-            "navigation", "address", "navigasyon", "adres", "harita", "map", "waze", "yandex",
-        ),
-        "Route planning & stops": (
-            "route", "stop", "rota", "durak", "optimize", "optimization", "excel", "csv",
-        ),
-        "Ads & promotions": (
-            "advert", "watch ad", "video ad", "reklam", "video izle", "reward", "ödül", "odul",
-        ),
-        "Updates & compatibility": (
-            "ios", "android update", "google play services", "huawei", "app gallery", "güncelleme", "guncelleme",
-        ),
-        "App errors & bug reports": (
-            "error", "bug", "crash", "not working", "çalışmıyor", "calismiyor", "açılmıyor", "acilmiyor", "hata",
-        ),
-    }
-    matched_groups = [
-        group for group, keywords in terms.items()
-        if any(keyword in text for keyword in keywords)
-    ]
-    # "Ödeme yaptım ama aboneliğim aktif değil" gibi çok konulu mesajlarda
-    # ilk bulunan kelimeye göre karar vermek güvenli değildir. Kural sadece
-    # tek, açık bir niyet taşıyan metinlerde devreye girer; diğerlerinde model
-    # bütün cümleyi birlikte değerlendirir.
-    return matched_groups[0] if len(matched_groups) == 1 else None
 
 
 def detect_language(text: str) -> str:
@@ -346,15 +278,10 @@ def answer_message(model: dict, message: str, top_k: int = 3) -> dict:
     if is_too_vague(message):
         return clarification_result(message, user_language, 0.0)
 
-    # PIX gibi açık bir alt niyet bulunduğunda etiket ve yanıt havuzu birlikte
-    # seçilmelidir. Aksi durumda "subscribe ... PIX" mesajında etiket abonelik
-    # olup öneri ödeme kaydından gelebilir.
+    # PIX gibi çok dar bir alt konu yalnız öneri havuzunu daraltır. Ana kategori
+    # her koşulda eğitilmiş sınıflandırıcıdan gelir.
     exact_intent = retrieval_intent_category(message)
-    explicit_group = keyword_support_group(message)
-    predicted_group = (
-        group_category(exact_intent) if exact_intent
-        else explicit_group or model["classifier"].predict([normalise_support_text(message)])[0]
-    )
+    predicted_group = model["classifier"].predict([normalise_support_text(message)])[0]
     query_vector = model["response_vectorizer"].transform([normalise_support_text(message)])
     similarities = cosine_similarity(query_vector, model["response_matrix"]).ravel()
     # Öneriler sadece tahmin edilen ana gruptan seçilir; örneğin ödeme etiketi
@@ -415,10 +342,10 @@ def answer_message(model: dict, message: str, top_k: int = 3) -> dict:
     normalized_length = len(re.sub(r"\W+", "", message.casefold()))
     minimum_similarity = (
         MIN_SHORT_UNQUALIFIED_SIMILARITY
-        if not explicit_group and not exact_intent and normalized_length <= SHORT_UNQUALIFIED_LENGTH
+        if not exact_intent and normalized_length <= SHORT_UNQUALIFIED_LENGTH
         else MIN_RETRIEVAL_SIMILARITY
     )
-    if best["similarity"] < minimum_similarity and not explicit_group:
+    if best["similarity"] < minimum_similarity:
         return clarification_result(message, user_language, best["similarity"])
 
     return {
@@ -429,7 +356,7 @@ def answer_message(model: dict, message: str, top_k: int = 3) -> dict:
         "detected_language": user_language,
         "english_query": None,
         "memory_language": "en" if english_memory else "original-language",
-        "category_source": "keyword_rule" if explicit_group else "model",
+        "category_source": "model",
         "date_aware_ranking": bool(np.any(np.asarray(model.get("training_recency_scores", [])) > 0)),
         "match_type": "retrieval",
         **best,
